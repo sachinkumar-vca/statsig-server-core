@@ -1,6 +1,5 @@
 package com.statsig;
 
-import com.alibaba.fastjson2.JSON;
 import java.util.Map;
 
 public class StatsigUser {
@@ -50,23 +49,24 @@ public class StatsigUser {
   }
 
   private void initializeRef() {
-    String customIdsJson = JSON.toJSONString(customIDs);
-    String customJson = JSON.toJSONString(custom);
-    String privateAttributesJson = JSON.toJSONString(privateAttributes);
-
-    // Pass all arguments to the JNI binding
+    // [S2SDK-165] The user crosses the JNI boundary exactly once, here. It used
+    // to cross as ten strings with the map fields JSON-serialized (and re-parsed
+    // on the native side); it now crosses as one compact binary payload, which
+    // removes the JSON round trip and the per-string charset conversions. See
+    // StatsigUserPayload for the format and rationale.
     this.ref =
-        StatsigJNI.statsigUserCreate(
-            userID,
-            customIdsJson,
-            email,
-            ip,
-            userAgent,
-            country,
-            locale,
-            appVersion,
-            customJson,
-            privateAttributesJson);
+        StatsigJNI.statsigUserCreateFromPayload(
+            StatsigUserPayload.encode(
+                userID,
+                customIDs,
+                email,
+                ip,
+                userAgent,
+                country,
+                locale,
+                appVersion,
+                custom,
+                privateAttributes));
   }
 
   // Expose a way for users to force release StatsigUser
