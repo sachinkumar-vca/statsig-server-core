@@ -266,6 +266,14 @@ pub struct ExperimentEvaluationOptionsPy {
     pub disable_exposure_logging: bool,
     #[pyo3(get, set)]
     pub user_persisted_values: Option<Py<PyDict>>,
+    /// When a persisted sticky value exists, let a matching console override
+    /// rule take precedence over it.
+    #[pyo3(get, set)]
+    pub enforce_overrides: bool,
+    /// When a persisted sticky value exists, re-check targeting and drop the
+    /// sticky value if the user no longer passes targeting.
+    #[pyo3(get, set)]
+    pub enforce_targeting: bool,
 }
 
 #[gen_stub_pyclass]
@@ -276,6 +284,14 @@ pub struct LayerEvaluationOptionsPy {
     pub disable_exposure_logging: bool,
     #[pyo3(get, set)]
     pub user_persisted_values: Option<Py<PyDict>>,
+    /// When a persisted sticky value exists, let a matching console override
+    /// rule take precedence over it.
+    #[pyo3(get, set)]
+    pub enforce_overrides: bool,
+    /// When a persisted sticky value exists, re-check targeting and drop the
+    /// sticky value if the user no longer passes targeting.
+    #[pyo3(get, set)]
+    pub enforce_targeting: bool,
 }
 
 #[gen_stub_pyclass]
@@ -311,8 +327,8 @@ impl From<&ExperimentEvaluationOptionsPy> for ExperimentEvaluationOptions {
             disable_exposure_logging: val.disable_exposure_logging,
             // For performance consideration, conversion to user persisted values use convert_dict_to_user_persisted_values()
             user_persisted_values: None,
-            // enforce_overrides / enforce_targeting are wired up in a follow-up binding sub-issue.
-            ..Default::default()
+            enforce_overrides: val.enforce_overrides,
+            enforce_targeting: val.enforce_targeting,
         }
     }
 }
@@ -323,8 +339,8 @@ impl From<&LayerEvaluationOptionsPy> for LayerEvaluationOptions {
             disable_exposure_logging: val.disable_exposure_logging,
             // For performance consideration, conversion to user persisted values use convert_dict_to_user_persisted_values()
             user_persisted_values: None,
-            // enforce_overrides / enforce_targeting are wired up in a follow-up binding sub-issue.
-            ..Default::default()
+            enforce_overrides: val.enforce_overrides,
+            enforce_targeting: val.enforce_targeting,
         }
     }
 }
@@ -359,14 +375,18 @@ macro_rules! impl_new_method_with_persisted_values {
         #[pymethods]
         impl $struct_name {
             #[new]
-            #[pyo3(signature = (disable_exposure_logging=false, user_persisted_values=None))]
+            #[pyo3(signature = (disable_exposure_logging=false, user_persisted_values=None, enforce_overrides=false, enforce_targeting=false))]
             pub fn new(
                 disable_exposure_logging: bool,
                 user_persisted_values: Option<Py<PyDict>>,
+                enforce_overrides: bool,
+                enforce_targeting: bool,
             ) -> Self {
                 Self {
                     disable_exposure_logging,
                     user_persisted_values,
+                    enforce_overrides,
+                    enforce_targeting,
                 }
             }
         }

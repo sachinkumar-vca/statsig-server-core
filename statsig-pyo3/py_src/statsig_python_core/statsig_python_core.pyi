@@ -55,7 +55,31 @@ class ExperimentEvaluationOptions:
     def user_persisted_values(self) -> typing.Optional[dict]: ...
     @user_persisted_values.setter
     def user_persisted_values(self, value: typing.Optional[dict]) -> None: ...
-    def __new__(cls, disable_exposure_logging: builtins.bool = False, user_persisted_values: typing.Optional[dict] = None) -> ExperimentEvaluationOptions: ...
+    @property
+    def enforce_overrides(self) -> builtins.bool:
+        r"""
+        When a persisted sticky value exists, let a matching console override
+        rule take precedence over it.
+        """
+    @enforce_overrides.setter
+    def enforce_overrides(self, value: builtins.bool) -> None:
+        r"""
+        When a persisted sticky value exists, let a matching console override
+        rule take precedence over it.
+        """
+    @property
+    def enforce_targeting(self) -> builtins.bool:
+        r"""
+        When a persisted sticky value exists, re-check targeting and drop the
+        sticky value if the user no longer passes targeting.
+        """
+    @enforce_targeting.setter
+    def enforce_targeting(self, value: builtins.bool) -> None:
+        r"""
+        When a persisted sticky value exists, re-check targeting and drop the
+        sticky value if the user no longer passes targeting.
+        """
+    def __new__(cls, disable_exposure_logging: builtins.bool = False, user_persisted_values: typing.Optional[dict] = None, enforce_overrides: builtins.bool = False, enforce_targeting: builtins.bool = False) -> ExperimentEvaluationOptions: ...
 
 @typing.final
 class FailureDetails:
@@ -102,7 +126,31 @@ class LayerEvaluationOptions:
     def user_persisted_values(self) -> typing.Optional[dict]: ...
     @user_persisted_values.setter
     def user_persisted_values(self, value: typing.Optional[dict]) -> None: ...
-    def __new__(cls, disable_exposure_logging: builtins.bool = False, user_persisted_values: typing.Optional[dict] = None) -> LayerEvaluationOptions: ...
+    @property
+    def enforce_overrides(self) -> builtins.bool:
+        r"""
+        When a persisted sticky value exists, let a matching console override
+        rule take precedence over it.
+        """
+    @enforce_overrides.setter
+    def enforce_overrides(self, value: builtins.bool) -> None:
+        r"""
+        When a persisted sticky value exists, let a matching console override
+        rule take precedence over it.
+        """
+    @property
+    def enforce_targeting(self) -> builtins.bool:
+        r"""
+        When a persisted sticky value exists, re-check targeting and drop the
+        sticky value if the user no longer passes targeting.
+        """
+    @enforce_targeting.setter
+    def enforce_targeting(self, value: builtins.bool) -> None:
+        r"""
+        When a persisted sticky value exists, re-check targeting and drop the
+        sticky value if the user no longer passes targeting.
+        """
+    def __new__(cls, disable_exposure_logging: builtins.bool = False, user_persisted_values: typing.Optional[dict] = None, enforce_overrides: builtins.bool = False, enforce_targeting: builtins.bool = False) -> LayerEvaluationOptions: ...
 
 @typing.final
 class LayerParamExposureData:
