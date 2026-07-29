@@ -37,5 +37,39 @@ namespace Statsig
 
         [DllImport(__DllName, EntryPoint = "__internal__test_data_store", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern byte* __internal__test_data_store(ulong dataStoreRef, byte* path, byte* value);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate void observability_client_init_fn_delegate();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate void observability_client_increment_fn_delegate(byte* argsPtr, ulong argsLength);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate void observability_client_gauge_fn_delegate(byte* argsPtr, ulong argsLength);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate void observability_client_dist_fn_delegate(byte* argsPtr, ulong argsLength);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate void observability_client_error_fn_delegate(byte* argsPtr, ulong argsLength);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool observability_client_should_enable_high_cardinality_for_this_tag_fn_delegate(byte* argsPtr, ulong argsLength);
+
+        [DllImport(__DllName, EntryPoint = "observability_client_create", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern ulong observability_client_create(
+            observability_client_init_fn_delegate initFn,
+            observability_client_increment_fn_delegate incrementFn,
+            observability_client_gauge_fn_delegate gaugeFn,
+            observability_client_dist_fn_delegate distFn,
+            observability_client_error_fn_delegate errorFn,
+            observability_client_should_enable_high_cardinality_for_this_tag_fn_delegate shouldEnableHighCardinalityForThisTagFn);
+
+        [DllImport(__DllName, EntryPoint = "observability_client_release", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void observability_client_release(ulong observabilityClientRef);
+
+        [DllImport(__DllName, EntryPoint = "__internal__test_observability_client", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void __internal__test_observability_client(ulong observabilityClientRef, byte* action, byte* metricName, double value, byte* tags);
     }
 }
