@@ -1,0 +1,92 @@
+name: Java Central Portal Dry Run
+
+# TEMPORARY — delete after validating the Central Portal publish migration.
+#
+# Dispatch-only. Stages the signed javacore publication and uploads it to the
+# Central Portal as a throwaway `0.0.0-dryrun.<run>` version with
+# publishingType=USER_MANAGED, so it is NEVER auto-published. Review the
+# resulting VALIDATED deployment in the Portal UI, then Drop it.
+#
+# Native libs are not built here (empty platform jars) — the Portal validates
+# POM/signatures/checksums, not jar contents, so this faithfully exercises the
+# build.gradle staging + Portal upload path without a full release.
+
+on:
+  workflow_dispatch:
+
+env:
+  ORG_GRADLE_PROJECT_MAVEN_USERNAME: ${{ secrets.ORG_GRADLE_PROJECT_MAVEN_USERNAME }}
+  ORG_GRADLE_PROJECT_MAVEN_PASSWORD: ${{ secrets.ORG_GRADLE_PROJECT_MAVEN_PASSWORD }}
+  ORG_GRADLE_PROJECT_SIGNING_KEY_ID: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_KEY_ID }}
+  ORG_GRADLE_PROJECT_SIGNING_KEY: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_KEY }}
+  ORG_GRADLE_PROJECT_SIGNING_PASSWORD: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_PASSWORD }}
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          java-version: "11"
+          distribution: "adopt"
+
+      - name: Stage signed bundle to local repo (throwaway version)
+        working-directory: statsig-java
+        run: |
+          ./gradlew publishMavenJavaPublicationToLocalStagingRepository \
+            -Pversion=0.0.0-dryrun.${GITHUB_RUN_NUMBER}
+
+      - name: Upload bundle to Central Portal (USER_MANAGED)
+        run: |
+          set -euo pipefail
+          VERSION="0.0.0-dryrun.${GITHUB_RUN_NUMBER}"
+          STAGING="statsig-java/build/central-staging"
+          BUNDLE="${GITHUB_WORKSPACE}/central-bundle.zip"
+
+          echo "::group::Staged tree"
+          find "$STAGING" -type f | sort
+          echo "::endgroup::"
+
+          ( cd "$STAGING" && zip -r -q "$BUNDLE" . )
+
+          AUTH=$(printf '%s:%s' "$ORG_GRADLE_PROJECT_MAVEN_USERNAME" "$ORG_GRADLE_PROJECT_MAVEN_PASSWORD" | base64 -w0)
+          echo "::add-mask::$AUTH"
+
+          echo "Uploading javacore-${VERSION} as USER_MANAGED ..."
+          HTTP=$(curl -sS -o resp.txt -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $AUTH" \
+            -F "bundle=@${BUNDLE}" \
+            "https://central.sonatype.com/api/v1/publisher/upload?name=javacore-${VERSION}&publishingType=USER_MANAGED")
+          DEPLOYMENT_ID="$(cat resp.txt)"
+          echo "upload HTTP $HTTP  deploymentId=$DEPLOYMENT_ID"
+          if [ "$HTTP" != "201" ]; then
+            echo "::error::Upload failed"; exit 1
+          fi
+
+          echo "Polling deployment status ..."
+          for i in $(seq 1 20); do
+            STATUS="$(curl -sS -X POST -H "Authorization: Bearer $AUTH" \
+              "https://central.sonatype.com/api/v1/publisher/status?id=${DEPLOYMENT_ID}")"
+            STATE="$(echo "$STATUS" | jq -r '.deploymentState // "UNKNOWN"')"
+            echo "  [$i] $STATE"
+            case "$STATE" in
+              VALIDATED)
+                echo "$STATUS" | jq .
+                echo "::notice::VALIDATED (not published — USER_MANAGED). Review deployment ${DEPLOYMENT_ID} at https://central.sonatype.com/publishing/deployments and DROP it."
+                exit 0 ;;
+              PUBLISHING|PUBLISHED)
+                echo "::warning::Unexpectedly reached ${STATE} for a USER_MANAGED dry run (id ${DEPLOYMENT_ID}); drop it in the Portal UI."
+                exit 0 ;;
+              FAILED)
+                echo "$STATUS" | jq .
+                echo "::error::Bundle validation FAILED"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "::error::Timed out waiting for validation (deployment ${DEPLOYMENT_ID})"; exit 1
