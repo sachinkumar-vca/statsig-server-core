@@ -101,6 +101,12 @@ pub struct Response {
     pub error: Option<String>,
 }
 
+/// Marks a `Response.error` as a deterministic client-construction failure
+/// (e.g. an unusable ca_cert_path) rather than a transient network error.
+/// Unprintable delimiters so it can't collide with real message text.
+/// Stripped by `NetworkClient::make_request` before the error reaches callers.
+pub(crate) const CLIENT_CONFIG_ERROR_PREFIX: &str = "\u{1}cfg-err\u{1}";
+
 #[derive(PartialEq, Clone)]
 pub enum HttpMethod {
     GET,
@@ -110,6 +116,9 @@ pub enum HttpMethod {
 #[async_trait]
 pub trait NetworkProvider: Sync + Send {
     async fn send(&self, method: &HttpMethod, args: &RequestArgs) -> Response;
+
+    /// Builds/caches any expensive per-config state off the request path. Default no-op.
+    fn warm(&self, _args: &RequestArgs) {}
 }
 
 pub trait ResponseDataStream:

@@ -24,3 +24,6 @@ pub mod mock_observability_client;
 
 #[allow(dead_code)]
 pub mod mock_log_provider;
+
+#[allow(dead_code)]
+pub mod tls_test_server;

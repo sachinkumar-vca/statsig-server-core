@@ -1,5 +1,6 @@
 use chrono::Utc;
 
+use super::http_types::CLIENT_CONFIG_ERROR_PREFIX;
 use super::network_error::NetworkError;
 use super::providers::get_network_provider;
 use super::{HttpMethod, NetworkProvider, RequestArgs, Response};
@@ -11,7 +12,7 @@ use crate::sdk_diagnostics::marker::{ActionType, Marker, StepType};
 use crate::utils::{
     get_loggable_sdk_key, is_version_segment, split_host_and_path, strip_query_and_fragment,
 };
-use crate::{log_d, log_i, log_w, StatsigOptions};
+use crate::{log_d, log_e, log_i, log_w, StatsigOptions};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -77,9 +78,9 @@ impl NetworkClient {
                         match std::fs::read(path) {
                             Ok(bytes) => Some(bytes),
                             Err(e) => {
-                                log_w!(
+                                log_e!(
                                     TAG,
-                                    "Failed to read proxy_config.ca_cert_path '{}': {}",
+                                    "Failed to read proxy_config.ca_cert_path '{}': {}. Continuing with OS/built-in trust roots only.",
                                     path,
                                     e
                                 );
@@ -96,7 +97,7 @@ impl NetworkClient {
             })
             .unwrap_or((false, None, None, false));
 
-        NetworkClient {
+        let client = NetworkClient {
             headers: headers.unwrap_or_default(),
             is_shutdown: Arc::new(AtomicBool::new(false)),
             net_provider,
@@ -110,7 +111,23 @@ impl NetworkClient {
                 .unwrap_or(false),
             log_event_connection_reuse,
             loggable_sdk_key: get_loggable_sdk_key(sdk_key),
+        };
+
+        // Warms the standard pooled client for this instance's config at
+        // construction time so the OS trust-store load lands here instead of
+        // inside the first request's timeout budget.
+        if !client.disable_network {
+            if let Some(net_provider) = client.net_provider.upgrade() {
+                let warm_args = RequestArgs {
+                    proxy_config: client.proxy_config.clone(),
+                    ca_cert_pem: client.ca_cert_pem.clone(),
+                    ..RequestArgs::new()
+                };
+                net_provider.warm(&warm_args);
+            }
         }
+
+        client
     }
 
     pub fn shutdown(&self) {
@@ -203,10 +220,15 @@ impl NetworkClient {
             };
 
             let status = response.status_code;
-            let error_message = response
+            let raw_error_message = response
                 .error
                 .clone()
                 .unwrap_or_else(|| get_error_message_for_status(status, response.data.as_mut()));
+            let (error_message, is_config_error) =
+                match raw_error_message.strip_prefix(CLIENT_CONFIG_ERROR_PREFIX) {
+                    Some(stripped) => (stripped.to_string(), true),
+                    None => (raw_error_message, false),
+                };
 
             let content_type = response
                 .data
@@ -265,6 +287,16 @@ impl NetworkClient {
 
             if success {
                 return Ok(response);
+            }
+
+            if is_config_error {
+                let error = NetworkError::RequestNotRetryable(
+                    request_args.url.clone(),
+                    None,
+                    error_message,
+                );
+                self.log_warning(&error, &request_args);
+                return Err(error);
             }
 
             if NON_RETRY_CODES.contains(&status.unwrap_or(0)) {
