@@ -153,6 +153,82 @@ TEST(StatsigE2EUsageTest, GetAutotuneList) {
   s.shutdownBlocking();
 }
 
+TEST(StatsigE2EUsageTest, GetFeatureGateList) {
+  const char *sdkKey = std::getenv("test_api_key");
+  if (sdkKey == nullptr) {
+    GTEST_SKIP() << "test_api_key env var not set";
+  }
+  statsig_cpp_core::StatsigOptionsBuilder optionsBuilder;
+  optionsBuilder.specs_url = "https://api.statsig.com/v2/download_config_specs";
+  statsig_cpp_core::Statsig s =
+      statsig_cpp_core::Statsig(sdkKey, optionsBuilder.build());
+  s.initializeBlocking();
+
+  std::vector<std::string> gates = s.getFeatureGateList();
+  EXPECT_FALSE(gates.empty());
+  EXPECT_NE(std::find(gates.begin(), gates.end(), "test_public"), gates.end());
+
+  s.shutdownBlocking();
+}
+
+TEST(StatsigE2EUsageTest, GetDynamicConfigList) {
+  const char *sdkKey = std::getenv("test_api_key");
+  if (sdkKey == nullptr) {
+    GTEST_SKIP() << "test_api_key env var not set";
+  }
+  statsig_cpp_core::StatsigOptionsBuilder optionsBuilder;
+  optionsBuilder.specs_url = "https://api.statsig.com/v2/download_config_specs";
+  statsig_cpp_core::Statsig s =
+      statsig_cpp_core::Statsig(sdkKey, optionsBuilder.build());
+  s.initializeBlocking();
+
+  std::vector<std::string> configs = s.getDynamicConfigList();
+  EXPECT_FALSE(configs.empty());
+  EXPECT_NE(std::find(configs.begin(), configs.end(), "big_number"),
+            configs.end());
+
+  s.shutdownBlocking();
+}
+
+TEST(StatsigE2EUsageTest, GetExperimentList) {
+  const char *sdkKey = std::getenv("test_api_key");
+  if (sdkKey == nullptr) {
+    GTEST_SKIP() << "test_api_key env var not set";
+  }
+  statsig_cpp_core::StatsigOptionsBuilder optionsBuilder;
+  optionsBuilder.specs_url = "https://api.statsig.com/v2/download_config_specs";
+  statsig_cpp_core::Statsig s =
+      statsig_cpp_core::Statsig(sdkKey, optionsBuilder.build());
+  s.initializeBlocking();
+
+  std::vector<std::string> experiments = s.getExperimentList();
+  EXPECT_FALSE(experiments.empty());
+  EXPECT_NE(std::find(experiments.begin(), experiments.end(),
+                      "experiment_with_many_params"),
+            experiments.end());
+
+  s.shutdownBlocking();
+}
+
+TEST(StatsigE2EUsageTest, GetLayerList) {
+  const char *sdkKey = std::getenv("test_api_key");
+  if (sdkKey == nullptr) {
+    GTEST_SKIP() << "test_api_key env var not set";
+  }
+  statsig_cpp_core::StatsigOptionsBuilder optionsBuilder;
+  optionsBuilder.specs_url = "https://api.statsig.com/v2/download_config_specs";
+  statsig_cpp_core::Statsig s =
+      statsig_cpp_core::Statsig(sdkKey, optionsBuilder.build());
+  s.initializeBlocking();
+
+  std::vector<std::string> layers = s.getLayerList();
+  EXPECT_FALSE(layers.empty());
+  EXPECT_NE(std::find(layers.begin(), layers.end(), "test_layer"),
+            layers.end());
+
+  s.shutdownBlocking();
+}
+
 TEST(StatsigE2EUsageTest, GetExperimentGroups) {
   const char *sdkKey = std::getenv("test_api_key");
   if (sdkKey == nullptr) {

@@ -88,7 +88,11 @@ public:
                  const std::optional<GetLayerOptions> &option = std::nullopt);
 
   // Entity Lists
+  std::vector<std::string> getFeatureGateList();
+  std::vector<std::string> getDynamicConfigList();
+  std::vector<std::string> getExperimentList();
   std::vector<std::string> getAutotuneList();
+  std::vector<std::string> getLayerList();
 
 private:
   uint64_t ref_;
