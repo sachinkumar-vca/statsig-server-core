@@ -147,6 +147,18 @@ class Statsig
      * Experiment Functions
      */
 
+    /**
+     * Supported $options keys:
+     * - disable_exposure_logging (bool)
+     * - user_persisted_values (array): map of config name to sticky values, as
+     *   saved through PersistentStorage. Only honored when a persistent
+     *   storage adapter is configured on StatsigOptions.
+     * - enforce_overrides (bool): when a persisted sticky value exists, let a
+     *   matching console override rule take precedence over it.
+     * - enforce_targeting (bool): when a persisted sticky value exists,
+     *   re-check targeting and drop the sticky value if the user no longer
+     *   passes targeting.
+     */
     public function getExperiment(StatsigUser $user, string $name, ?array $options = null): Experiment
     {
         $ptr = StatsigFFI::get()->statsig_get_experiment(
@@ -225,6 +237,9 @@ class Statsig
      * Layer Functions
      */
 
+    /**
+     * Supported $options keys: see getExperiment().
+     */
     public function getLayer(StatsigUser $user, string $name, ?array $options = null): Layer
     {
         $ptr = StatsigFFI::get()->statsig_get_layer(
@@ -253,6 +268,57 @@ class Statsig
      * Entity List Functions
      */
 
+    public function getFeatureGateList(): array
+    {
+        $ffi = StatsigFFI::get();
+        // $len satisfies the required uint64_t* out-param; its written value is
+        // unused because takeString reads the NUL-terminated JSON payload.
+        $len = $ffi->new('uint64_t');
+        $ptr = $ffi->statsig_get_feature_gate_list($this->__ref, \FFI::addr($len));
+
+        if (\FFI::isNull($ptr)) {
+            return [];
+        }
+
+        $raw_result = StatsigFFI::takeString($ptr);
+        $decoded = json_decode($raw_result, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    public function getDynamicConfigList(): array
+    {
+        $ffi = StatsigFFI::get();
+        // $len satisfies the required uint64_t* out-param; its written value is
+        // unused because takeString reads the NUL-terminated JSON payload.
+        $len = $ffi->new('uint64_t');
+        $ptr = $ffi->statsig_get_dynamic_config_list($this->__ref, \FFI::addr($len));
+
+        if (\FFI::isNull($ptr)) {
+            return [];
+        }
+
+        $raw_result = StatsigFFI::takeString($ptr);
+        $decoded = json_decode($raw_result, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    public function getExperimentList(): array
+    {
+        $ffi = StatsigFFI::get();
+        // $len satisfies the required uint64_t* out-param; its written value is
+        // unused because takeString reads the NUL-terminated JSON payload.
+        $len = $ffi->new('uint64_t');
+        $ptr = $ffi->statsig_get_experiment_list($this->__ref, \FFI::addr($len));
+
+        if (\FFI::isNull($ptr)) {
+            return [];
+        }
+
+        $raw_result = StatsigFFI::takeString($ptr);
+        $decoded = json_decode($raw_result, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
     public function getAutotuneList(): array
     {
         $ffi = StatsigFFI::get();
@@ -260,6 +326,23 @@ class Statsig
         // unused because takeString reads the NUL-terminated JSON payload.
         $len = $ffi->new('uint64_t');
         $ptr = $ffi->statsig_get_autotune_list($this->__ref, \FFI::addr($len));
+
+        if (\FFI::isNull($ptr)) {
+            return [];
+        }
+
+        $raw_result = StatsigFFI::takeString($ptr);
+        $decoded = json_decode($raw_result, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    public function getLayerList(): array
+    {
+        $ffi = StatsigFFI::get();
+        // $len satisfies the required uint64_t* out-param; its written value is
+        // unused because takeString reads the NUL-terminated JSON payload.
+        $len = $ffi->new('uint64_t');
+        $ptr = $ffi->statsig_get_layer_list($this->__ref, \FFI::addr($len));
 
         if (\FFI::isNull($ptr)) {
             return [];

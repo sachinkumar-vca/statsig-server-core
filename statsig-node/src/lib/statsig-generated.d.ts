@@ -157,6 +157,16 @@ export interface EvaluationDetails {
 export interface ExperimentEvaluationOptions {
   disableExposureLogging?: boolean
   userPersistedValues?: Record<string, any>
+  /**
+   * When a persisted sticky value exists, let a matching console override
+   * rule take precedence over it.
+   */
+  enforceOverrides?: boolean
+  /**
+   * When a persisted sticky value exists, re-check targeting and drop the
+   * sticky value if the user no longer passes targeting.
+   */
+  enforceTargeting?: boolean
 }
 
 export interface ExperimentGroup {
@@ -189,6 +199,16 @@ export declare const enum GCIRResponseFormat {
 export interface LayerEvaluationOptions {
   disableExposureLogging?: boolean
   userPersistedValues?: Record<string, any>
+  /**
+   * When a persisted sticky value exists, let a matching console override
+   * rule take precedence over it.
+   */
+  enforceOverrides?: boolean
+  /**
+   * When a persisted sticky value exists, re-check targeting and drop the
+   * sticky value if the user no longer passes targeting.
+   */
+  enforceTargeting?: boolean
 }
 
 export interface ObservabilityClient {

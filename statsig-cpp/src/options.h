@@ -1,4 +1,5 @@
 #pragma once
+#include "observability_client.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -25,7 +26,21 @@ public:
   bool disable_country_lookup = false;
   bool disable_network = false;
   std::optional<uint32_t> exposure_dedupe_max_keys;
+  // Non-owning: the caller owns the ObservabilityClient and must keep it alive
+  // for the lifetime of the resulting Statsig instance.
+  std::optional<uint64_t> observability_client_ref;
   StatsigOptionsBuilder() = default;
+  StatsigOptionsBuilder &
+  set_observability_client(const ObservabilityClient &client) {
+    // A ref of 0 means native registration failed (e.g. slot exhaustion);
+    // serialize null rather than an explicit-but-invalid ref.
+    if (client.ref() != 0) {
+      observability_client_ref = client.ref();
+    } else {
+      observability_client_ref = std::nullopt;
+    }
+    return *this;
+  }
   StatsigOptions build();
 };
 
@@ -40,7 +55,8 @@ inline void to_json(json &j, const StatsigOptionsBuilder &b) {
            {"disable_all_logging", b.disable_all_logging},
            {"disable_country_lookup", b.disable_country_lookup},
            {"disable_network", b.disable_network},
-           {"exposure_dedupe_max_keys", b.exposure_dedupe_max_keys}};
+           {"exposure_dedupe_max_keys", b.exposure_dedupe_max_keys},
+           {"observability_client_ref", b.observability_client_ref}};
 }
 
 struct CheckGateOptions {

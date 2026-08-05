@@ -1,55 +1,49 @@
-use crate::ffi_utils::{parse_json_to_map, parse_json_to_str_map};
-use crate::jni::jni_utils::jstring_to_string;
-use jni::objects::{JClass, JString};
+use crate::user_payload::decode_user_payload;
+use jni::objects::{JByteArray, JClass};
 use jni::sys::jlong;
 use jni::JNIEnv;
-use statsig_rust::{log_d, log_e, InstanceRegistry, StatsigUserBuilder};
+use statsig_rust::{log_d, log_e, InstanceRegistry};
 
 const TAG: &str = "StatsigUserJNI";
 
+/// [S2SDK-165] User construction is the expensive JNI crossing for this
+/// binding (evaluations afterwards only pass the returned handle), and it used
+/// to take ten separate `JString` arguments with the map fields serialized to
+/// JSON on the JVM and re-parsed here -- a serialize -> copy -> parse round
+/// trip per construction that scaled with the number of populated fields.
+///
+/// The user now arrives as a single length-prefixed binary payload (encoded by
+/// `StatsigUserPayload.java`): one array argument, one copy, one typed decode,
+/// and no JSON for flat values. See `user_payload.rs` for the format.
+///
+/// Named `...FromPayload` (not reusing `statsigUserCreate`) on purpose: JNI
+/// symbol names for non-overloaded methods do not encode the signature, so a
+/// mismatched native library (e.g. via a STATSIG_NATIVE_LIB override) would
+/// otherwise resolve the old ten-string symbol with the wrong ABI and crash
+/// the JVM. The rename turns that into a clear UnsatisfiedLinkError.
 #[no_mangle]
-pub extern "system" fn Java_com_statsig_StatsigJNI_statsigUserCreate(
-    mut env: JNIEnv,
+pub extern "system" fn Java_com_statsig_StatsigJNI_statsigUserCreateFromPayload(
+    env: JNIEnv,
     _class: JClass,
-    user_id: JString,
-    custom_ids_json: JString,
-    email: JString,
-    ip: JString,
-    user_agent: JString,
-    country: JString,
-    locale: JString,
-    app_version: JString,
-    custom_json: JString,
-    private_attributes_json: JString,
+    payload: JByteArray,
 ) -> jlong {
-    let user_id = jstring_to_string(&mut env, user_id);
-    let custom_ids = parse_json_to_str_map(jstring_to_string(&mut env, custom_ids_json));
-    let email = jstring_to_string(&mut env, email);
-    let ip = jstring_to_string(&mut env, ip);
-    let user_agent = jstring_to_string(&mut env, user_agent);
-    let country = jstring_to_string(&mut env, country);
-    let locale = jstring_to_string(&mut env, locale);
-    let app_version = jstring_to_string(&mut env, app_version);
-    let custom = parse_json_to_map(jstring_to_string(&mut env, custom_json));
-    let private_attributes =
-        parse_json_to_map(jstring_to_string(&mut env, private_attributes_json));
-
-    let mut builder = match custom_ids {
-        Some(custom_ids) => StatsigUserBuilder::new_with_custom_ids(custom_ids).user_id(user_id),
-        None => StatsigUserBuilder::new_with_user_id(user_id.unwrap_or_default()),
+    // One copy out of the JVM. The payload is raw UTF-8 + fixed-width scalars,
+    // so unlike the old JString path there is no UTF-16 -> UTF-8 conversion.
+    let bytes = match env.convert_byte_array(&payload) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            log_e!(TAG, "Failed to read user payload: {}", e);
+            return 0;
+        }
     };
 
-    builder = builder
-        .email(email)
-        .ip(ip)
-        .user_agent(user_agent)
-        .country(country)
-        .locale(locale)
-        .app_version(app_version)
-        .custom(custom)
-        .private_attributes(private_attributes);
-
-    let user = builder.build();
+    let user = match decode_user_payload(&bytes) {
+        Some(user) => user,
+        None => {
+            log_e!(TAG, "Failed to decode user payload");
+            return 0;
+        }
+    };
 
     match InstanceRegistry::register(user) {
         Some(id) => {

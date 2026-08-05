@@ -1426,3 +1426,12 @@ pub extern "C" fn statsig_get_parameter_store_list(
     let statsig = get_instance_or_return_c!(Statsig, &statsig_ref, null_mut());
     serialize_entity_list_to_c_char(statsig.get_parameter_store_list(), inout_result_len)
 }
+
+#[no_mangle]
+pub extern "C" fn statsig_get_layer_list(
+    statsig_ref: u64,
+    inout_result_len: *mut u64,
+) -> *mut c_char {
+    let statsig = get_instance_or_return_c!(Statsig, &statsig_ref, null_mut());
+    serialize_entity_list_to_c_char(statsig.get_layer_list(), inout_result_len)
+}

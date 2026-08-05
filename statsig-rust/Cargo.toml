@@ -29,9 +29,12 @@ reqwest = { version = "0.12.14", features = [
     "json",
     "gzip",
     "rustls-tls",
+    "rustls-tls-native-roots",
     "brotli",
     "http2"
 ], optional = true, default-features = false }
+rustls = { version = "0.23", default-features = false, features = ["std"], optional = true }
+rustls-pemfile = { version = "2", optional = true }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_derive = { version = "1.0.204", features = ["deserialize_in_place"] }
 serde_json = { version = "1.0.143", features = [
@@ -41,7 +44,7 @@ serde_json = { version = "1.0.143", features = [
 ] }
 serde_with = "3.4.0"
 sha2 = "0.10.8"
-sigstat-grpc = { path = "../statsig-grpc", version = "0.20.2", optional = true }
+sigstat-grpc = { path = "../statsig-grpc", version = "0.20.3-beta.2608050456", optional = true }
 simple_logger = { version = "5.0.0" }
 tempfile = "3.8.1"
 tokio = { version = "1.39.1", features = ["full"] }
@@ -70,9 +73,12 @@ more-asserts = "0.3.1"
 libc = "0.2"
 serial_test = "3.2.0"
 rusty-fork = "0.3.0"
+rcgen = "0.13"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 
 [features]
 default = ["reqwest"]
+reqwest = ["dep:reqwest", "dep:rustls", "dep:rustls-pemfile"]
 custom_network_provider = []
 with_grpc = ["sigstat-grpc"]
 testing = []

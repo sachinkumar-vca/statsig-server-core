@@ -47,6 +47,12 @@ impl From<DynamicConfigEvaluationOptionsNapi> for DynamicConfigEvaluationOptions
 pub struct ExperimentEvaluationOptionsNapi {
     pub disable_exposure_logging: Option<bool>,
     pub user_persisted_values: Option<HashMap<String, serde_json::Value>>,
+    /// When a persisted sticky value exists, let a matching console override
+    /// rule take precedence over it.
+    pub enforce_overrides: Option<bool>,
+    /// When a persisted sticky value exists, re-check targeting and drop the
+    /// sticky value if the user no longer passes targeting.
+    pub enforce_targeting: Option<bool>,
 }
 
 impl From<ExperimentEvaluationOptionsNapi> for ExperimentEvaluationOptions {
@@ -56,8 +62,8 @@ impl From<ExperimentEvaluationOptionsNapi> for ExperimentEvaluationOptions {
             user_persisted_values: opts.user_persisted_values.and_then(|values| {
                 serde_json::from_value(serde_json::Value::Object(values.into_iter().collect())).ok()
             }),
-            // enforceOverrides / enforceTargeting are wired up in a follow-up binding sub-issue.
-            ..Default::default()
+            enforce_overrides: opts.enforce_overrides.unwrap_or(false),
+            enforce_targeting: opts.enforce_targeting.unwrap_or(false),
         }
     }
 }
@@ -70,6 +76,12 @@ impl From<ExperimentEvaluationOptionsNapi> for ExperimentEvaluationOptions {
 pub struct LayerEvaluationOptionsNapi {
     pub disable_exposure_logging: Option<bool>,
     pub user_persisted_values: Option<HashMap<String, serde_json::Value>>,
+    /// When a persisted sticky value exists, let a matching console override
+    /// rule take precedence over it.
+    pub enforce_overrides: Option<bool>,
+    /// When a persisted sticky value exists, re-check targeting and drop the
+    /// sticky value if the user no longer passes targeting.
+    pub enforce_targeting: Option<bool>,
 }
 
 impl From<LayerEvaluationOptionsNapi> for LayerEvaluationOptions {
@@ -79,8 +91,8 @@ impl From<LayerEvaluationOptionsNapi> for LayerEvaluationOptions {
             user_persisted_values: opts.user_persisted_values.and_then(|values| {
                 serde_json::from_value(serde_json::Value::Object(values.into_iter().collect())).ok()
             }),
-            // enforceOverrides / enforceTargeting are wired up in a follow-up binding sub-issue.
-            ..Default::default()
+            enforce_overrides: opts.enforce_overrides.unwrap_or(false),
+            enforce_targeting: opts.enforce_targeting.unwrap_or(false),
         }
     }
 }

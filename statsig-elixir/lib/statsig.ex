@@ -214,11 +214,75 @@ defmodule Statsig do
     end
   end
 
+  def get_feature_gate_list() do
+    try do
+      instance = get_statsig_instance()
+
+      case NativeBindings.get_feature_gate_list(instance) do
+        {:error, e} -> {:error, e}
+        list -> {:ok, list}
+      end
+    rescue
+      exception -> {:error, Exception.message(exception)}
+    catch
+      :exit, reason -> {:error, {:exit, reason}}
+      exception -> {:error, Exception.message(exception)}
+    end
+  end
+
+  def get_dynamic_config_list() do
+    try do
+      instance = get_statsig_instance()
+
+      case NativeBindings.get_dynamic_config_list(instance) do
+        {:error, e} -> {:error, e}
+        list -> {:ok, list}
+      end
+    rescue
+      exception -> {:error, Exception.message(exception)}
+    catch
+      :exit, reason -> {:error, {:exit, reason}}
+      exception -> {:error, Exception.message(exception)}
+    end
+  end
+
+  def get_experiment_list() do
+    try do
+      instance = get_statsig_instance()
+
+      case NativeBindings.get_experiment_list(instance) do
+        {:error, e} -> {:error, e}
+        list -> {:ok, list}
+      end
+    rescue
+      exception -> {:error, Exception.message(exception)}
+    catch
+      :exit, reason -> {:error, {:exit, reason}}
+      exception -> {:error, Exception.message(exception)}
+    end
+  end
+
   def get_autotune_list() do
     try do
       instance = get_statsig_instance()
 
       case NativeBindings.get_autotune_list(instance) do
+        {:error, e} -> {:error, e}
+        list -> {:ok, list}
+      end
+    rescue
+      exception -> {:error, Exception.message(exception)}
+    catch
+      :exit, reason -> {:error, {:exit, reason}}
+      exception -> {:error, Exception.message(exception)}
+    end
+  end
+
+  def get_layer_list() do
+    try do
+      instance = get_statsig_instance()
+
+      case NativeBindings.get_layer_list(instance) do
         {:error, e} -> {:error, e}
         list -> {:ok, list}
       end

@@ -5,10 +5,15 @@ import {
   listFiles,
 } from '@/utils/file_utils.js';
 import { Log } from '@/utils/terminal_utils.js';
+import { getRootVersion } from '@/utils/toml_utils.js';
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { PublisherOptions } from './publisher-options.js';
+
+const CENTRAL_PORTAL_UPLOAD = 'https://central.sonatype.com/api/v1/publisher/upload';
+const CENTRAL_PORTAL_STATUS = 'https://central.sonatype.com/api/v1/publisher/status';
 
 const TARGETS = [
   'aarch64-apple-darwin',
@@ -38,7 +43,7 @@ export async function javaPublish(options: PublisherOptions) {
   Log.stepEnd(`Cleared ${JAVA_NATIVE_DIR}`);
 
   moveJavaLibraries(libFiles);
-  publishJavaPackages(options);
+  await publishJavaPackages();
 }
 
 function isMappedTarget(file: string): boolean {
@@ -95,16 +100,123 @@ function moveJavaLibraries(libFiles: string[]) {
   Log.stepEnd('Successfully moved Java Libraries');
 }
 
-function publishJavaPackages(options: PublisherOptions) {
-  Log.stepBegin('Publishing Java Packages');
+async function publishJavaPackages() {
+  Log.stepBegin('Staging Java Packages');
 
-  execSync(
-    './gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository',
-    {
-      cwd: getRootedPath('statsig-java'),
-      stdio: 'inherit',
-    },
+  // Publish the signed publication (jars + POM + .asc + checksums) into a local
+  // maven2 tree at statsig-java/build/central-staging.
+  execSync('./gradlew publishMavenJavaPublicationToLocalStagingRepository', {
+    cwd: getRootedPath('statsig-java'),
+    stdio: 'inherit',
+  });
+
+  Log.stepEnd('Successfully staged Java Packages');
+
+  await uploadBundleToCentralPortal();
+}
+
+function getCentralPortalToken(): string {
+  const username = process.env.ORG_GRADLE_PROJECT_MAVEN_USERNAME;
+  const password = process.env.ORG_GRADLE_PROJECT_MAVEN_PASSWORD;
+  if (!username || !password) {
+    throw new Error(
+      'Missing ORG_GRADLE_PROJECT_MAVEN_USERNAME/ORG_GRADLE_PROJECT_MAVEN_PASSWORD for Central Portal upload',
+    );
+  }
+  return Buffer.from(`${username}:${password}`).toString('base64');
+}
+
+async function uploadBundleToCentralPortal() {
+  const version = getRootVersion().toString();
+  const token = getCentralPortalToken();
+  const stagingDir = getRootedPath('statsig-java/build/central-staging');
+  const bundlePath = getRootedPath('statsig-java/build/central-bundle.zip');
+
+  Log.stepBegin('Zipping Central Portal bundle');
+  // Zip from the staging root so entries start at com/statsig/javacore/...
+  execSync(`rm -f "${bundlePath}"`, { stdio: 'inherit' });
+  execSync(`zip -r -q "${bundlePath}" .`, { cwd: stagingDir, stdio: 'inherit' });
+  Log.stepEnd(`Created ${bundlePath}`);
+
+  Log.stepBegin('Uploading bundle to Central Portal');
+  const form = new FormData();
+  form.append(
+    'bundle',
+    new Blob([fs.readFileSync(bundlePath)]),
+    'central-bundle.zip',
   );
 
-  Log.stepEnd('Successfully published Java Packages');
+  // AUTOMATIC releases once validation passes; USER_MANAGED stops at VALIDATED
+  // so a human publishes it from the Portal UI (used for manual recovery).
+  const publishingType = process.env.CENTRAL_PORTAL_PUBLISHING_TYPE ?? 'AUTOMATIC';
+  const uploadUrl =
+    `${CENTRAL_PORTAL_UPLOAD}` +
+    `?name=${encodeURIComponent(`javacore-${version}`)}` +
+    `&publishingType=${publishingType}`;
+
+  const res = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Central Portal upload failed (${res.status}): ${await res.text()}`,
+    );
+  }
+
+  const deploymentId = (await res.text()).trim();
+  Log.stepEnd(`Uploaded deployment ${deploymentId}`);
+
+  await waitForDeployment(deploymentId, token);
+}
+
+async function waitForDeployment(deploymentId: string, token: string) {
+  Log.stepBegin('Waiting for Central Portal to accept the deployment');
+
+  const intervalMs = 15_000;
+  const deadline = Date.now() + 30 * 60 * 1000;
+  // AUTOMATIC deployments progress PENDING -> VALIDATING -> VALIDATED ->
+  // PUBLISHING -> PUBLISHED; once VALIDATED the release is committed.
+  const done = new Set(['VALIDATED', 'PUBLISHING', 'PUBLISHED']);
+
+  while (Date.now() < deadline) {
+    const res = await fetch(`${CENTRAL_PORTAL_STATUS}?id=${deploymentId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      throw new Error(
+        `Central Portal status check failed (${res.status}): ${await res.text()}`,
+      );
+    }
+
+    const data = (await res.json()) as {
+      deploymentState?: string;
+      errors?: unknown;
+    };
+    const state = data.deploymentState ?? 'UNKNOWN';
+    Log.stepProgress(`deployment ${deploymentId}: ${state}`);
+
+    if (done.has(state)) {
+      Log.stepEnd(`Central Portal deployment ${state}`);
+      return;
+    }
+
+    if (state === 'FAILED') {
+      throw new Error(
+        `Central Portal deployment ${deploymentId} FAILED: ${JSON.stringify(
+          data.errors ?? data,
+        )}`,
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  throw new Error(
+    `Central Portal deployment ${deploymentId} did not reach a terminal state before timeout`,
+  );
 }

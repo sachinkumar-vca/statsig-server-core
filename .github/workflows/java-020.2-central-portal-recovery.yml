@@ -1,0 +1,89 @@
+name: Java 0.20.2 Central Portal Recovery
+
+# TEMPORARY, one-off — delete after 0.20.2 is on Maven Central.
+#
+# The 0.20.2 stable Java publish failed because Sonatype disabled the OSSRH
+# staging bridge for com.statsig. This re-publishes the stranded artifact by
+# building the EXACT 0.20.2 release (version + source from releases/0.20.2)
+# with the migrated Central Portal publish flow overlaid, using the real 0.20.2
+# native libs from the original build run, and signing with the CI keys.
+#
+# Uploads as USER_MANAGED, so it stops at VALIDATED — a human publishes it from
+# the Portal UI (https://central.sonatype.com/publishing/deployments) after
+# reviewing. Nothing reaches Central until that click.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fix_ref:
+        description: Ref with the migrated build.gradle + java-publisher.ts
+        default: task/java-central-portal-publishing
+      release_branch:
+        description: Release branch/tag to build (version + source)
+        default: releases/0.20.2
+      workflow_run_id:
+        description: CI run id holding the 0.20.2 java build artifacts
+        default: "30052542422"
+      release_id:
+        description: GitHub release id for 0.20.2 (public repo)
+        default: "359001346"
+
+env:
+  # Signing + Central Portal token
+  ORG_GRADLE_PROJECT_MAVEN_USERNAME: ${{ secrets.ORG_GRADLE_PROJECT_MAVEN_USERNAME }}
+  ORG_GRADLE_PROJECT_MAVEN_PASSWORD: ${{ secrets.ORG_GRADLE_PROJECT_MAVEN_PASSWORD }}
+  ORG_GRADLE_PROJECT_SIGNING_KEY_ID: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_KEY_ID }}
+  ORG_GRADLE_PROJECT_SIGNING_KEY: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_KEY }}
+  ORG_GRADLE_PROJECT_SIGNING_PASSWORD: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_PASSWORD }}
+  # Kong GitHub App — used by ./tore's octokit to download build artifacts
+  GH_APP_ID: "229901"
+  GH_APP_INSTALLATION_ID: "36921303"
+  GH_APP_PRIVATE_KEY: ${{ secrets.KONG_APP_KEY_V2 }}
+  # Gate: stop at VALIDATED; publish manually from the Portal UI
+  CENTRAL_PORTAL_PUBLISHING_TYPE: USER_MANAGED
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout 0.20.2 release (correct version + source)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_branch }}
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Overlay migrated publish flow from ${{ inputs.fix_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ inputs.fix_ref }}"
+          git checkout FETCH_HEAD -- \
+            statsig-java/build.gradle \
+            cli/src/commands/publishers/java-publisher.ts
+          echo "Overlaid (must show the two files as modified):"
+          git status --porcelain
+          echo "Sanity: OSSRH bridge must be gone from build.gradle:"
+          ! grep -q "ossrh-staging-api" statsig-java/build.gradle && echo "  OK — no OSSRH bridge" || (echo "  ERROR — overlay failed" && exit 1)
+
+      - uses: ./.github/actions/common-setup
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          java-version: "11"
+          distribution: "adopt"
+
+      - name: Publish javacore 0.20.2 to Central Portal (USER_MANAGED)
+        run: |
+          ./tore publish \
+            --package java \
+            --workflow-id ${{ inputs.workflow_run_id }} \
+            --release-id ${{ inputs.release_id }} \
+            --repository statsig-server-core \
+            --disregard-workflow-checks
+
+      - name: Next step
+        run: |
+          echo "::notice::If the run succeeded, the deployment is VALIDATED but NOT published."
+          echo "::notice::Review it at https://central.sonatype.com/publishing/deployments and click Publish, then confirm javacore:0.20.2 on Maven Central."

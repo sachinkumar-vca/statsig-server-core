@@ -1,3 +1,5 @@
+#[cfg(feature = "reqwest")]
+pub mod ca_bundle;
 mod http_types;
 mod network_client;
 pub mod network_error;

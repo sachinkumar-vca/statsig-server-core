@@ -14,6 +14,7 @@ mod statsig_local_file_specs_adapter_c;
 mod statsig_metadata_c;
 mod statsig_options_c;
 mod statsig_user_c;
+mod user_payload;
 
 extern crate core;
 extern crate statsig_rust;

@@ -336,6 +336,8 @@ char *statsig_get_autotune_list(uint64_t statsig_ref, uint64_t *inout_result_len
 
 char *statsig_get_parameter_store_list(uint64_t statsig_ref, uint64_t *inout_result_len);
 
+char *statsig_get_layer_list(uint64_t statsig_ref, uint64_t *inout_result_len);
+
 uint64_t statsig_http_event_logging_adapter_create(const char *sdk_key, uint64_t options_ref);
 
 void statsig_http_event_logging_adapter_release(uint64_t event_logging_adapter_ref);

@@ -221,17 +221,15 @@ class StatsigJNI {
 
   // --------------------------------------------------------------------------------------------------- [StatsigUser]
 
-  public static native long statsigUserCreate(
-      String userId,
-      String customIdsJson,
-      String email,
-      String ip,
-      String userAgent,
-      String country,
-      String locale,
-      String appVersion,
-      String customJson,
-      String privateAttributesJson);
+  // [S2SDK-165] Takes the binary payload produced by StatsigUserPayload.encode
+  // (decoded by user_payload.rs). Previously ten string arguments with
+  // JSON-serialized maps; the binary form avoids the JSON serialize/parse round
+  // trip and per-string UTF-16 -> UTF-8 conversions on the construction hot path.
+  // Deliberately NOT named statsigUserCreate: JNI symbols for non-overloaded
+  // methods don't encode the signature, so a stale native lib would bind the old
+  // ten-string entry point with the wrong ABI and crash the JVM; the new name
+  // makes a jar/native mismatch fail fast with UnsatisfiedLinkError instead.
+  public static native long statsigUserCreateFromPayload(byte[] payload);
 
   public static native void statsigUserRelease(long userRef);
 

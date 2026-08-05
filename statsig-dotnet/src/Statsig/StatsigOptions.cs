@@ -14,10 +14,12 @@ namespace Statsig
         private bool _disposed;
         private readonly PersistentStorage? _persistentStorage;
         private readonly DataStore? _dataStore;
+        private readonly ObservabilityClient? _observabilityClient;
 
         internal unsafe ulong Reference => _ref;
         internal IPersistentStorage? PersistentStorage => _persistentStorage;
         internal DataStore? DataStore => _dataStore;
+        internal ObservabilityClient? ObservabilityClient => _observabilityClient;
 
         public StatsigOptions(StatsigOptionsBuilder builder)
         {
@@ -31,6 +33,12 @@ namespace Statsig
             {
                 _dataStore = builder.dataStore;
                 builder.dataStoreRef = _dataStore.Reference;
+            }
+
+            if (builder.observabilityClient != null)
+            {
+                _observabilityClient = builder.observabilityClient;
+                builder.observabilityClientRef = _observabilityClient.Reference;
             }
 
             var jsonData = JsonConvert.SerializeObject(builder, new JsonSerializerSettings
@@ -54,6 +62,10 @@ namespace Statsig
             if (builder.dataStore != null)
             {
                 builder.dataStoreRef = null;
+            }
+            if (builder.observabilityClient != null)
+            {
+                builder.observabilityClientRef = null;
             }
         }
 
@@ -140,6 +152,12 @@ namespace Statsig
 
         [JsonIgnore]
         internal DataStore? dataStore;
+
+        [JsonProperty("observability_client_ref")]
+        internal ulong? observabilityClientRef;
+
+        [JsonIgnore]
+        internal ObservabilityClient? observabilityClient;
 
         [JsonProperty("disable_country_lookup")]
         internal bool? disableCountryLookup;
@@ -266,6 +284,12 @@ namespace Statsig
         public StatsigOptionsBuilder SetDataStore(DataStore dataStore)
         {
             this.dataStore = dataStore;
+            return this;
+        }
+
+        public StatsigOptionsBuilder SetObservabilityClient(ObservabilityClient observabilityClient)
+        {
+            this.observabilityClient = observabilityClient;
             return this;
         }
 
