@@ -239,15 +239,50 @@ impl From<AllowedPrimitive> for DynamicValue {
 #[module = "Statsig.ExperimentEvaluationOptions"]
 pub struct ExperimentEvaluationOptions {
     pub disable_exposure_logging: bool,
+    pub user_persisted_values: Option<ValueMap>,
+    pub enforce_overrides: bool,
+    pub enforce_targeting: bool,
 }
 
 impl From<ExperimentEvaluationOptions> for ExperimentEvaluationOptionsActual {
     fn from(option: ExperimentEvaluationOptions) -> Self {
         ExperimentEvaluationOptionsActual {
             disable_exposure_logging: option.disable_exposure_logging,
-            ..Default::default()
+            user_persisted_values: convert_user_persisted_values(option.user_persisted_values),
+            enforce_overrides: option.enforce_overrides,
+            enforce_targeting: option.enforce_targeting,
         }
     }
+}
+
+/// Decodes an Elixir map of config name -> sticky values into the core
+/// UserPersistedValues type via serde. Entries that fail to decode are
+/// dropped individually with a logged error, so one malformed entry does not
+/// discard the rest of the persisted values.
+fn convert_user_persisted_values(
+    values: Option<ValueMap>,
+) -> Option<statsig_rust::UserPersistedValues> {
+    let values = values?;
+    let converted: statsig_rust::UserPersistedValues = values
+        .0
+        .into_iter()
+        .filter_map(|(config_name, value)| {
+            match serde_json::from_value::<statsig_rust::StickyValues>(value) {
+                Ok(sticky) => Some((config_name, sticky)),
+                Err(e) => {
+                    statsig_rust::log_e!(
+                        "[StatsigTypes NFI] ",
+                        "Failed to decode user_persisted_values entry {}: {:?}",
+                        config_name,
+                        e
+                    );
+                    None
+                }
+            }
+        })
+        .collect();
+
+    Some(converted)
 }
 
 #[derive(NifStruct)]
@@ -268,13 +303,18 @@ impl From<FeatureGateEvaluationOptions> for FeatureGateEvaluationOptionsActual {
 #[module = "Statsig.LayerEvaluationOptions"]
 pub struct LayerEvaluationOptions {
     pub disable_exposure_logging: bool,
+    pub user_persisted_values: Option<ValueMap>,
+    pub enforce_overrides: bool,
+    pub enforce_targeting: bool,
 }
 
 impl From<LayerEvaluationOptions> for LayerEvaluationOptionsActual {
     fn from(option: LayerEvaluationOptions) -> Self {
         LayerEvaluationOptionsActual {
             disable_exposure_logging: option.disable_exposure_logging,
-            ..Default::default()
+            user_persisted_values: convert_user_persisted_values(option.user_persisted_values),
+            enforce_overrides: option.enforce_overrides,
+            enforce_targeting: option.enforce_targeting,
         }
     }
 }
