@@ -7,8 +7,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,15 +31,30 @@ public class EnforceStickyValuesTest {
     String dcsJson = TestUtils.loadJsonFromFile("enforce_sticky_dcs.json");
     mockWebServer = new MockWebServer();
     mockWebServer.start();
-    mockWebServer.enqueue(
-        new MockResponse()
-            .setResponseCode(200)
-            .setHeader("Content-Type", "application/json")
-            .setBody(dcsJson));
+    mockWebServer.setDispatcher(
+        new Dispatcher() {
+          @Override
+          public MockResponse dispatch(RecordedRequest request) {
+            String path = request.getPath();
+            if (path != null && path.contains("download_config_specs")) {
+              return new MockResponse()
+                  .setResponseCode(200)
+                  .setHeader("Content-Type", "application/json")
+                  .setBody(dcsJson);
+            }
+            return new MockResponse()
+                .setResponseCode(202)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"success\": true}");
+          }
+        });
 
     StatsigOptions options =
         new StatsigOptions.Builder()
             .setSpecsUrl(mockWebServer.url("/v2/download_config_specs").toString())
+            // Keep event flushes pointed at the mock server rather than the
+            // real endpoint.
+            .setLogEventUrl(mockWebServer.url("/v1/log_event").toString())
             .setOutputLoggerLevel(OutputLogger.LogLevel.ERROR)
             // userPersistedValues are only honored when a persistent storage
             // adapter is configured.
