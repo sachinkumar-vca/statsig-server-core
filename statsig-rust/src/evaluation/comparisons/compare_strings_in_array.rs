@@ -100,8 +100,8 @@ mod tests {
 
     #[test]
     fn test_str_starting_with() {
-        let needle = dyn_value!("daniel@statsig.com");
-        let haystack = test_only_make_eval_value!(vec!["tore", "daniel"]);
+        let needle = dyn_value!("user@example.com");
+        let haystack = test_only_make_eval_value!(vec!["tore", "user"]);
 
         assert!(compare_strings_in_array(
             &needle,
