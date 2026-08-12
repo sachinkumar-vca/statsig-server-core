@@ -107,7 +107,6 @@ jobs:
             "@statsig/statsig-node-core-linux-x64-musl-rc@npm:@statsig/statsig-node-core-linux-x64-musl@${RC_VER}" \
             --no-save \
             --force \
-            --include=optional \
             --config.minimum-release-age=4320 \
             "--config.minimum-release-age-exclude=@statsig/statsig-node-core*"
 
@@ -118,7 +117,6 @@ jobs:
             "@statsig/statsig-node-core-linux-x64-musl-rc@npm:@statsig/statsig-node-core-linux-x64-musl@${RC_VER}" \
             --no-save \
             --force \
-            --include=optional \
             --config.minimum-release-age=4320 \
             "--config.minimum-release-age-exclude=@statsig/statsig-node-core*"
 
@@ -129,7 +127,6 @@ jobs:
             "@statsig/statsig-node-core-linux-x64-musl-rc@npm:@statsig/statsig-node-core-linux-x64-musl@${RC_VER}" \
             --no-save \
             --force \
-            --include=optional \
             --config.minimum-release-age=4320 \
             "--config.minimum-release-age-exclude=@statsig/statsig-node-core*"
 

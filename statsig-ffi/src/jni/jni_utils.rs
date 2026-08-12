@@ -137,16 +137,8 @@ pub fn convert_java_check_gate_options_to_rust(
         return None;
     }
 
-    let disable_exposure_logging_field: jboolean =
-        match env.get_field(&options, "disableExposureLogging", "Z") {
-            Ok(field) => field.z().unwrap().into(),
-            Err(_) => return None,
-        };
-
-    let disable_exposure_logging = jboolean_to_bool(disable_exposure_logging_field);
-
-    disable_exposure_logging.map(|disable_exposure_logging| FeatureGateEvaluationOptions {
-        disable_exposure_logging,
+    Some(FeatureGateEvaluationOptions {
+        disable_exposure_logging: get_bool_field_or_false(env, &options, "disableExposureLogging"),
     })
 }
 
@@ -158,16 +150,8 @@ pub fn convert_java_get_dynamic_config_options_to_rust(
         return None;
     }
 
-    let disable_exposure_logging_field: jboolean =
-        match env.get_field(&options, "disableExposureLogging", "Z") {
-            Ok(field) => field.z().unwrap().into(),
-            Err(_) => return None,
-        };
-
-    let disable_exposure_logging = jboolean_to_bool(disable_exposure_logging_field);
-
-    disable_exposure_logging.map(|disable_exposure_logging| DynamicConfigEvaluationOptions {
-        disable_exposure_logging,
+    Some(DynamicConfigEvaluationOptions {
+        disable_exposure_logging: get_bool_field_or_false(env, &options, "disableExposureLogging"),
     })
 }
 
@@ -179,13 +163,7 @@ pub fn convert_java_get_experiment_options_to_rust(
         return None;
     }
 
-    let disable_exposure_logging_field: jboolean =
-        match env.get_field(&options, "disableExposureLogging", "Z") {
-            Ok(field) => field.z().unwrap().into(),
-            Err(_) => return None,
-        };
-
-    let disable_exposure_logging = jboolean_to_bool(disable_exposure_logging_field)?;
+    let disable_exposure_logging = get_bool_field_or_false(env, &options, "disableExposureLogging");
 
     // Get userPersistedValues field (Map<String, StickyValues>)
     let user_persisted_values =
@@ -291,13 +269,7 @@ pub fn convert_java_get_layer_options_to_rust(
         return None;
     }
 
-    let disable_exposure_logging_field: jboolean =
-        match env.get_field(&options, "disableExposureLogging", "Z") {
-            Ok(field) => field.z().unwrap().into(),
-            Err(_) => return None,
-        };
-
-    let disable_exposure_logging = jboolean_to_bool(disable_exposure_logging_field)?;
+    let disable_exposure_logging = get_bool_field_or_false(env, &options, "disableExposureLogging");
 
     // Get userPersistedValues field (Map<String, StickyValues>)
     let user_persisted_values =

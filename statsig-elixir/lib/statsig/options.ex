@@ -23,7 +23,8 @@ defmodule Statsig.Options do
             disable_user_agent_parsing: nil,
             use_third_party_ua_parser: nil,
             disable_disk_access: nil,
-            data_store: nil
+            data_store: nil,
+            persistent_storage: nil
 end
 
 defmodule Statsig.SpecAdapterConfig do
@@ -38,7 +39,25 @@ defmodule Statsig.SpecAdapterConfig do
 end
 
 defmodule Statsig.ExperimentEvaluationOptions do
-  defstruct disable_exposure_logging: false
+  @moduledoc """
+  Options for `Statsig.get_experiment/3`.
+
+  * `user_persisted_values` - map of config name to sticky values, as saved
+    through `Statsig.PersistentStorage`. Only honored when
+    `%Statsig.Options{persistent_storage: ...}` is configured. Note: when
+    persistent storage is configured, leaving this `nil` tells the SDK the
+    caller has no persisted values, and it will issue a `handle_delete` for
+    the config being evaluated. Pass the loaded map (or `%{}` for a user with
+    nothing stored) to keep sticky assignment active.
+  * `enforce_overrides` - when a persisted sticky value exists, let a matching
+    console override rule take precedence over it.
+  * `enforce_targeting` - when a persisted sticky value exists, re-check
+    targeting and drop the sticky value if the user no longer passes targeting.
+  """
+  defstruct disable_exposure_logging: false,
+            user_persisted_values: nil,
+            enforce_overrides: false,
+            enforce_targeting: false
 end
 
 defmodule Statsig.FeatureGateEvaluationOptions do
@@ -46,7 +65,14 @@ defmodule Statsig.FeatureGateEvaluationOptions do
 end
 
 defmodule Statsig.LayerEvaluationOptions do
-  defstruct disable_exposure_logging: false
+  @moduledoc """
+  Options for `Statsig.get_layer/3`. See `Statsig.ExperimentEvaluationOptions`
+  for the persistent-assignment fields.
+  """
+  defstruct disable_exposure_logging: false,
+            user_persisted_values: nil,
+            enforce_overrides: false,
+            enforce_targeting: false
 end
 
 defmodule Statsig.DynamicConfigEvaluationOptions do

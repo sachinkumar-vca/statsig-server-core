@@ -26,9 +26,9 @@ exclude = [
 [workspace.package]
 edition = "2021"
 license = "ISC"
-version = "0.21.0"
+version = "0.21.0-rc.1"
 homepage = "https://statsig.com/"
-authors = ["Statsig", "Daniel Loomb <daniel@statsig.com>"]
+authors = ["Statsig"]
 readme = "README.md"
 repository = "https://github.com/statsig-io/statsig-server-core"
 description = "Statsig Rust SDK for usage in multi-user server environments."

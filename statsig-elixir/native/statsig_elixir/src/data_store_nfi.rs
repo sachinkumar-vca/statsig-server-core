@@ -46,7 +46,7 @@ impl Drop for ManagedEnvGuard {
     }
 }
 
-fn current_managed_env() -> Option<Env<'static>> {
+pub(crate) fn current_managed_env() -> Option<Env<'static>> {
     MANAGED_ENVS.with(|stack| stack.borrow().last().copied())
 }
 

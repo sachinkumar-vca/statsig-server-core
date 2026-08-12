@@ -6,6 +6,7 @@ use statsig_rust::{
 use std::sync::Arc;
 
 use crate::data_store_nfi::{ElixirDataStore, StatsigDataStoreReference};
+use crate::persistent_storage_nfi::{ElixirPersistentStorage, StatsigPersistentStorageReference};
 
 #[derive(NifStruct)]
 #[module = "Statsig.SpecAdapterConfig"]
@@ -68,6 +69,7 @@ pub struct StatsigOptions {
     pub use_third_party_ua_parser: Option<bool>,
     pub disable_disk_access: Option<bool>,
     pub data_store: Option<StatsigDataStoreReference>,
+    pub persistent_storage: Option<StatsigPersistentStorageReference>,
 }
 
 impl From<StatsigOptions> for StatsigOptionsActual {
@@ -101,6 +103,10 @@ impl From<StatsigOptions> for StatsigOptionsActual {
             init_timeout_ms: config.init_timeout_ms,
             data_store: config.data_store.map(|reference| {
                 Arc::new(ElixirDataStore::new(reference.pid)) as Arc<dyn DataStoreTrait>
+            }),
+            persistent_storage: config.persistent_storage.map(|reference| {
+                Arc::new(ElixirPersistentStorage::new(reference.pid))
+                    as Arc<dyn statsig_rust::PersistentStorage>
             }),
             ..StatsigOptionsActual::default()
         }

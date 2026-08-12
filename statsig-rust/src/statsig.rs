@@ -820,6 +820,20 @@ impl Statsig {
         }
     }
 
+    #[must_use]
+    pub fn get_parameter_names_from_store(
+        &self,
+        user: &StatsigUser,
+        parameter_store_name: &str,
+    ) -> Vec<String> {
+        self.get_parameter_store_with_user_and_options(
+            Some(user),
+            parameter_store_name,
+            ParameterStoreEvaluationOptions::default(),
+        )
+        .get_parameter_names()
+    }
+
     pub fn get_parameter_store(&self, parameter_store_name: &str) -> ParameterStore<'_> {
         self.get_parameter_store_with_options(
             parameter_store_name,
