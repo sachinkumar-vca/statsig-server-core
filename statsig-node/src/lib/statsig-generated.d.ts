@@ -59,6 +59,7 @@ export declare class StatsigNapiInternal {
   getExperimentList(): Array<string>
   getAutotuneList(): Array<string>
   getParameterStoreList(): Array<string>
+  getLayerList(): Array<string>
   getParsedUserAgentValueForUser(user: StatsigUser): Record<string, string | undefined | null> | null
 }
 

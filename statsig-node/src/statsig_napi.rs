@@ -548,6 +548,11 @@ impl StatsigNapiInternal {
     }
 
     #[napi]
+    pub fn get_layer_list(&self) -> Vec<String> {
+        self.inner.get_layer_list()
+    }
+
+    #[napi]
     pub fn __get_parsed_user_agent_value_for_user(
         &self,
         user: &StatsigUser,
