@@ -595,6 +595,11 @@ impl StatsigBasePy {
         self.inner.get_parameter_store_list()
     }
 
+    #[pyo3(name = "get_layer_list")]
+    pub fn get_layer_list(&self) -> Vec<String> {
+        self.inner.get_layer_list()
+    }
+
     #[pyo3(signature = (user))]
     pub fn identify(&self, user: &StatsigUserPy) -> PyResult<()> {
         self.inner.identify(&user.inner);
