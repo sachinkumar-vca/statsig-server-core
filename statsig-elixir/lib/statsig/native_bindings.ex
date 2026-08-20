@@ -57,6 +57,8 @@ defmodule Statsig.NativeBindings do
 
   def get_layer_list(_statsig), do: :erlang.nif_error(:nif_not_loaded)
 
+  def get_parameter_store_list(_statsig), do: :erlang.nif_error(:nif_not_loaded)
+
   def log_event(_statsig, _statsig_user, _event_name, _value, _metadata),
     do: :erlang.nif_error(:nif_not_loaded)
 
