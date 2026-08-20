@@ -126,6 +126,8 @@ class StatsigJNI {
 
   public static native String statsigGetParameterStoreList(long statsigRef);
 
+  public static native String statsigGetLayerList(long statsigRef);
+
   public static native String statsigGetParameterNamesFromParameterStore(
       long statsigRef, long userRef, String parameterStoreName);
 
