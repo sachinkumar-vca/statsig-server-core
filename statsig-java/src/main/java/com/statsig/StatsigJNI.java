@@ -14,14 +14,26 @@ class StatsigJNI {
   }
 
   static {
-    OutputLogger.logInfo(
-        TAG,
-        "Detected OS: "
-            + NativeBinaryResolver.osName
-            + " Arch: "
-            + NativeBinaryResolver.normalizedArch);
+    // Any throwable escaping this block becomes ExceptionInInitializerError and permanently
+    // poisons StatsigJNI, killing all SDK initialization for the JVM's lifetime.
+    boolean loaded = false;
+    try {
+      OutputLogger.logInfo(
+          TAG,
+          "Detected OS: "
+              + NativeBinaryResolver.osName
+              + " Arch: "
+              + NativeBinaryResolver.normalizedArch);
 
-    LIBRARY_LOADED = NativeBinaryResolver.load();
+      loaded = NativeBinaryResolver.load();
+    } catch (Throwable t) {
+      try {
+        OutputLogger.logError(TAG, "Unexpected error during native library initialization: " + t);
+      } catch (Throwable ignored) {
+        // even logging failed; nothing safe left to do
+      }
+    }
+    LIBRARY_LOADED = loaded;
   }
 
   // ------------------------------------------------------------------------------------------------------- [Statsig]

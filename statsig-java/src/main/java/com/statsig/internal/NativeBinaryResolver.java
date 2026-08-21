@@ -11,6 +11,7 @@ import java.util.Properties;
 public class NativeBinaryResolver {
   static final String TAG = "NativeBinaryResolver";
   static final String STATSIG_SKIP_MUSL_DETECTION = "STATSIG_SKIP_MUSL_DETECTION";
+  static final String STATSIG_SKIP_MUSL_DETECTION_PROPERTY = "statsig.skip.musl.detection";
   static String sdkVersion;
 
   public static String osName = System.getProperty("os.name").toLowerCase();
@@ -23,23 +24,45 @@ public class NativeBinaryResolver {
       Properties props = new Properties();
       props.load(input);
       sdkVersion = props.getProperty("version");
-    } catch (IOException e) {
+    } catch (Exception e) {
+      // e.g. NPE when statsigsdk.properties is stripped from a shaded jar.
+      preserveInterrupt(e);
       sdkVersion = "unknown";
+    }
+  }
+
+  /**
+   * The broad catches in this class swallow anything the loader throws so class initialization
+   * can't be aborted. An interrupt arriving as InterruptedException — or as InterruptedIOException
+   * from blocking I/O — would have its flag cleared on the way through, so restore it for the
+   * caller.
+   */
+  static void preserveInterrupt(Throwable t) {
+    if (t instanceof InterruptedException || t instanceof InterruptedIOException) {
+      Thread.currentThread().interrupt();
     }
   }
 
   /** [Internal] Library Loading */
   public static boolean load() {
-    boolean loaded =
-        tryLoadFromSystemPropertyOrEnv()
-            || tryLoadFromLibraryPath()
-            || loadNativeLibraryFromResources();
+    // Runs from StatsigJNI's static initializer: any escaping throwable becomes
+    // ExceptionInInitializerError and permanently poisons the class.
+    try {
+      boolean loaded =
+          tryLoadFromSystemPropertyOrEnv()
+              || tryLoadFromLibraryPath()
+              || loadNativeLibraryFromResources();
 
-    if (!loaded) {
-      logNativeLibraryError();
+      if (!loaded) {
+        logNativeLibraryError();
+      }
+
+      return loaded;
+    } catch (Throwable t) {
+      preserveInterrupt(t);
+      OutputLogger.logError(TAG, "Unexpected error while loading native library: " + t);
+      return false;
     }
-
-    return loaded;
   }
 
   private static boolean loadNativeLibraryFromResources() {
@@ -147,6 +170,7 @@ public class NativeBinaryResolver {
               + temp.getAbsolutePath());
       return temp.getAbsolutePath();
     } catch (IOException e) {
+      preserveInterrupt(e);
       OutputLogger.logError(
           TAG, "I/O Error while writing the library to a temporary file: " + e.getMessage());
       return null;
@@ -228,7 +252,7 @@ public class NativeBinaryResolver {
   }
 
   private static boolean isMusl() {
-    Boolean shouldSkipDetection = readShouldSkipMuslDetectionEnv();
+    Boolean shouldSkipDetection = readShouldSkipMuslDetection();
     if (shouldSkipDetection != null && shouldSkipDetection) {
       return false;
     }
@@ -246,6 +270,15 @@ public class NativeBinaryResolver {
       String output = new String(Files.readAllBytes(Paths.get("/usr/bin/ldd")));
       return output.contains("musl");
     } catch (IOException e) {
+      preserveInterrupt(e);
+      return false;
+    } catch (Throwable t) {
+      preserveInterrupt(t);
+      OutputLogger.logWarning(
+          TAG,
+          "Unexpected error reading /usr/bin/ldd for musl detection: "
+              + t
+              + ". Assuming glibc (non-musl).");
       return false;
     }
   }
@@ -264,19 +297,43 @@ public class NativeBinaryResolver {
 
       return false;
     } catch (IOException e) {
+      preserveInterrupt(e);
+      return false;
+    } catch (Throwable t) {
+      // Instrumented runtimes (e.g. security java agents) can throw more than IOException here.
+      preserveInterrupt(t);
+      OutputLogger.logWarning(
+          TAG,
+          "Unexpected error running 'ldd --version' for musl detection: "
+              + t
+              + ". Assuming glibc (non-musl).");
       return false;
     }
   }
 
-  static Boolean readShouldSkipMuslDetectionEnv() {
-    String envValue = System.getenv(STATSIG_SKIP_MUSL_DETECTION);
-    Boolean parsed = parseBooleanOverride(envValue);
-    if (envValue != null && parsed == null) {
+  static Boolean readShouldSkipMuslDetection() {
+    return resolveSkipMuslDetection(
+        System.getProperty(STATSIG_SKIP_MUSL_DETECTION_PROPERTY),
+        System.getenv(STATSIG_SKIP_MUSL_DETECTION));
+  }
+
+  static Boolean resolveSkipMuslDetection(String propertyValue, String envValue) {
+    Boolean fromProperty = parseOverrideOrWarn(propertyValue, STATSIG_SKIP_MUSL_DETECTION_PROPERTY);
+    if (fromProperty != null) {
+      return fromProperty;
+    }
+
+    return parseOverrideOrWarn(envValue, STATSIG_SKIP_MUSL_DETECTION);
+  }
+
+  private static Boolean parseOverrideOrWarn(String value, String sourceName) {
+    Boolean parsed = parseBooleanOverride(value);
+    if (value != null && parsed == null) {
       OutputLogger.logWarning(
           TAG,
           String.format(
-              "Invalid value '%s' for %s (skip musl detection). Use true/false/1. Falling back to default musl detection.",
-              envValue, STATSIG_SKIP_MUSL_DETECTION));
+              "Invalid value '%s' for %s (skip musl detection). Use true/false/1/0. Ignoring.",
+              value, sourceName));
     }
 
     return parsed;
@@ -301,6 +358,10 @@ public class NativeBinaryResolver {
     }
 
     if (normalized.equalsIgnoreCase("false")) {
+      return false;
+    }
+
+    if (normalized.equals("0")) {
       return false;
     }
 
