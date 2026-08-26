@@ -1,3 +1,4 @@
+import json
 import os
 from statsig_python_core import (
     DynamicConfigEvaluationOptions,
@@ -10,7 +11,7 @@ from statsig_python_core import (
     notify_python_fork,
     notify_python_shutdown,
 )
-from typing import Optional
+from typing import Any, Callable, Literal, Optional
 from .error_boundary import ErrorBoundary
 from .statsig_types import (
     DynamicConfig,
@@ -20,6 +21,15 @@ from .statsig_types import (
     Layer,
 )
 import atexit
+
+SdkEventName = Literal[
+    "*",
+    "gate_evaluated",
+    "dynamic_config_evaluated",
+    "experiment_evaluated",
+    "layer_evaluated",
+    "specs_updated",
+]
 
 
 def handle_atexit():
@@ -82,6 +92,24 @@ class Statsig(StatsigBasePy):
             hasattr(cls, "_statsig_shared_instance")
             and cls._statsig_shared_instance is not None
         )
+
+    # ------------------------------------------------------------ [ SDK Events ]
+
+    def subscribe(
+        self, event_name: SdkEventName, callback: Callable[[Any], None]
+    ) -> str:
+        """Subscribes to an SDK event, returning a subscription id.
+
+        The callback is invoked on an SDK background thread with the event as a
+        dict: `{"event_name": ..., "data": {...}}`. Pass `"*"` to receive every
+        event. Remove the subscription with `unsubscribe_by_id`, `unsubscribe`
+        or `unsubscribe_all`.
+        """
+
+        def on_event(raw: str) -> None:
+            ErrorBoundary._capture("subscribe", lambda: callback(json.loads(raw)))
+
+        return super()._INTERNAL_subscribe(event_name, on_event)
 
     # ------------------------------------------------------------ [ Core APIs ]
 
