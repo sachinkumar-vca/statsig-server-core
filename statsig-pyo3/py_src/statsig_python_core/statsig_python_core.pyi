@@ -293,7 +293,27 @@ class StatsigBasePy:
     def get_experiment_list(self) -> builtins.list[builtins.str]: ...
     def get_autotune_list(self) -> builtins.list[builtins.str]: ...
     def get_parameter_store_list(self) -> builtins.list[builtins.str]: ...
+    def get_layer_list(self) -> builtins.list[builtins.str]: ...
     def identify(self, user: StatsigUser) -> None: ...
+    def _INTERNAL_subscribe(self, event_name: typing.Literal['*', 'gate_evaluated', 'dynamic_config_evaluated', 'experiment_evaluated', 'layer_evaluated', 'specs_updated'], callback: typing.Callable[[builtins.str], None]) -> builtins.str:
+        r"""
+        Subscribes to an SDK event, returning a subscription id.
+        
+        The callback receives the event as a raw JSON string. Prefer
+        `Statsig.subscribe`, which parses it into a dict first.
+        """
+    def unsubscribe(self, event_name: typing.Literal['*', 'gate_evaluated', 'dynamic_config_evaluated', 'experiment_evaluated', 'layer_evaluated', 'specs_updated']) -> None:
+        r"""
+        Removes every subscription for the given event.
+        """
+    def unsubscribe_by_id(self, subscription_id: builtins.str) -> None:
+        r"""
+        Removes the single subscription created by `subscribe`.
+        """
+    def unsubscribe_all(self) -> None:
+        r"""
+        Removes every subscription across all events.
+        """
 
 @typing.final
 class StatsigOptions:

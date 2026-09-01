@@ -7,7 +7,7 @@ pub enum StatsigGrpcErr {
     FailedToGetLock,
     Authentication(String),
     FailedToConnect(String),
-    ErrorGrpcStatus(Status),
+    ErrorGrpcStatus(Box<Status>),
     CustomErr(String),
 }
 

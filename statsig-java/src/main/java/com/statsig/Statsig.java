@@ -392,6 +392,14 @@ public class Statsig {
     return JSON.parseArray(resultJSON, String.class);
   }
 
+  public List<String> getLayerList() {
+    String resultJSON = StatsigJNI.statsigGetLayerList(ref);
+    if (resultJSON == null || resultJSON.isEmpty()) {
+      return new ArrayList<>();
+    }
+    return JSON.parseArray(resultJSON, String.class);
+  }
+
   public List<String> getParameterNamesFromParameterStore(
       StatsigUser user, String parameterStoreName) {
     String resultJSON =

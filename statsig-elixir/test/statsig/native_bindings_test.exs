@@ -344,4 +344,15 @@ defmodule Statsig.NativeBindingsTest do
       assert Enum.all?(result, &is_binary/1)
     end
   end
+
+  describe "get_parameter_store_list/1" do
+    test "returns a list of parameter store names" do
+      ref = new()
+
+      result = NativeBindings.get_parameter_store_list(ref)
+
+      assert is_list(result)
+      assert Enum.all?(result, &is_binary/1)
+    end
+  end
 end

@@ -61,7 +61,7 @@ impl StatsigGrpcClient {
         client
             .get_config_spec(request)
             .await
-            .map_err(StatsigGrpcErr::ErrorGrpcStatus)
+            .map_err(|e| StatsigGrpcErr::ErrorGrpcStatus(Box::new(e)))
             .map(|r| r.into_inner())
     }
 
@@ -75,7 +75,7 @@ impl StatsigGrpcClient {
         client
             .stream_config_spec(request)
             .await
-            .map_err(StatsigGrpcErr::ErrorGrpcStatus)
+            .map_err(|e| StatsigGrpcErr::ErrorGrpcStatus(Box::new(e)))
             .map(|s| s.into_inner())
     }
 

@@ -26,7 +26,9 @@ use pyo3::{
 use pyo3_stub_gen::derive::*;
 use serde_json::Value;
 use statsig_rust::{
-    log_e, ClientInitResponseOptions, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
+    log_e,
+    sdk_event_emitter::{SdkEventEmitter, SubscriptionID},
+    ClientInitResponseOptions, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
     FeatureGateEvaluationOptions, HashAlgorithm, LayerEvaluationOptions, ObservabilityClient,
     ParameterStoreEvaluationOptions, Statsig, UserPersistedValues,
 };
@@ -595,10 +597,97 @@ impl StatsigBasePy {
         self.inner.get_parameter_store_list()
     }
 
+    #[pyo3(name = "get_layer_list")]
+    pub fn get_layer_list(&self) -> Vec<String> {
+        self.inner.get_layer_list()
+    }
+
     #[pyo3(signature = (user))]
     pub fn identify(&self, user: &StatsigUserPy) -> PyResult<()> {
         self.inner.identify(&user.inner);
         Ok(())
+    }
+
+    /// Subscribes to an SDK event, returning a subscription id.
+    ///
+    /// The callback receives the event as a raw JSON string. Prefer
+    /// `Statsig.subscribe`, which parses it into a dict first.
+    #[pyo3(name = "_INTERNAL_subscribe")]
+    pub fn _internal_subscribe(
+        &self,
+        py: Python,
+        #[gen_stub(override_type(
+            type_repr = "typing.Literal['*', 'gate_evaluated', 'dynamic_config_evaluated', 'experiment_evaluated', 'layer_evaluated', 'specs_updated']"
+        ))]
+        event_name: String,
+        #[gen_stub(override_type(type_repr = "typing.Callable[[builtins.str], None]"))]
+        callback: Py<PyAny>,
+    ) -> String {
+        self.detach_for_emitter(py, |emitter| {
+            emitter
+                .subscribe(&event_name, move |event| {
+                    let raw = match event.to_raw_json_string() {
+                        Some(raw) => raw,
+                        None => return,
+                    };
+
+                    SafeGil::run(|py| {
+                        let py = match py {
+                            Some(py) => py,
+                            None => return,
+                        };
+
+                        if let Err(e) = callback.call1(py, (raw,)) {
+                            log_e!(TAG, "Failed to call SDK event subscriber: {:?}", e);
+                        }
+                    });
+                })
+                .encode()
+        })
+    }
+
+    /// Removes every subscription for the given event.
+    pub fn unsubscribe(
+        &self,
+        py: Python,
+        #[gen_stub(override_type(
+            type_repr = "typing.Literal['*', 'gate_evaluated', 'dynamic_config_evaluated', 'experiment_evaluated', 'layer_evaluated', 'specs_updated']"
+        ))]
+        event_name: String,
+    ) {
+        self.detach_for_emitter(py, |emitter| emitter.unsubscribe(&event_name));
+    }
+
+    /// Removes the single subscription created by `subscribe`.
+    pub fn unsubscribe_by_id(&self, py: Python, subscription_id: String) {
+        let sub_id = match SubscriptionID::decode(&subscription_id) {
+            Some(sub_id) => sub_id,
+            None => {
+                log_e!(TAG, "Invalid subscription ID: {}", subscription_id);
+                return;
+            }
+        };
+
+        self.detach_for_emitter(py, |emitter| emitter.unsubscribe_by_id(&sub_id));
+    }
+
+    /// Removes every subscription across all events.
+    pub fn unsubscribe_all(&self, py: Python) {
+        self.detach_for_emitter(py, |emitter| emitter.unsubscribe_all());
+    }
+}
+
+impl StatsigBasePy {
+    /// Subscription bookkeeping takes an emitter lock that an in-flight emit may
+    /// still hold while it blocks waiting on the GIL. Release the GIL so that
+    /// emit can complete and drop the lock, rather than deadlocking against us.
+    fn detach_for_emitter<F, R>(&self, py: Python, f: F) -> R
+    where
+        F: Send + FnOnce(&SdkEventEmitter) -> R,
+        R: Send,
+    {
+        let emitter = self.inner.event_emitter.clone();
+        py.detach(move || f(&emitter))
     }
 }
 
